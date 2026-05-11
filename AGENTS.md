@@ -22,16 +22,29 @@ Build a continuity-first operational runtime shell.
 - dashboard overload
 
 ## Current Phase
-Step 1 — Runtime Shell ONLY
+Step 2 — Memory Layer
+
+Building: pgvector + AKB retrieval, message embeddings, cross-session continuity, thread persistence.
+
+## Completed
+- Step 1: Runtime Shell (auth, streaming chat, thread persistence, responsive layout)
+
+## Active
+- pgvector semantic search (search_akbs, search_messages RPCs)
+- AKBs table with truth_rank and scope hierarchy
+- Embedding generation on every message (text-embedding-3-small)
+- Retrieval injection into system prompt on each chat turn
+- /remember <text> command to create AKBs from chat
+- Thread list from DB with real titles
+- Assistant message persistence
+- initialMessages on thread page load (session continuity)
 
 ## Do Not Build Yet
-- MOSE
-- AKBs
-- retrieval systems
-- governance engines
-- continuity snapshots
-- orchestration systems
-- vector memory
+- MOSE orchestration engine
+- Continuity snapshots
+- Governance UI
+- Pig Pen operator routing
+- Observability dashboard
 
 ## Standards
 - production-safe TypeScript

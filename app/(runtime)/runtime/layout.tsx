@@ -7,5 +7,12 @@ export default async function RuntimeLayout({ children }: { children: React.Reac
   const { data } = await supabase.auth.getUser();
   if (!data.user) redirect('/login');
 
-  return <RuntimeShell>{children}</RuntimeShell>;
+  const { data: threads } = await supabase
+    .from('threads')
+    .select('id, title, updated_at')
+    .eq('user_id', data.user.id)
+    .order('updated_at', { ascending: false })
+    .limit(30);
+
+  return <RuntimeShell threads={threads ?? []}>{children}</RuntimeShell>;
 }
