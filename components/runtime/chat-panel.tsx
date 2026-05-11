@@ -1,22 +1,81 @@
 'use client';
 
 import { useChat } from 'ai/react';
+import type { Message } from 'ai';
+import { useEffect, useRef } from 'react';
 
-export function ChatPanel({ threadId }: { threadId: string }) {
+export function ChatPanel({
+  threadId,
+  initialMessages = [],
+}: {
+  threadId: string;
+  initialMessages?: Message[];
+}) {
   const { messages, input, handleInputChange, handleSubmit, status } = useChat({
     api: '/api/chat',
-    body: { threadId }
+    body: { threadId },
+    initialMessages,
   });
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const isStreaming = status === 'streaming' || status === 'submitted';
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-3 overflow-auto p-4">
-        {messages.map((m) => <div key={m.id} className="rounded bg-zinc-900 p-3 text-sm"><strong>{m.role}:</strong> {m.content}</div>)}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.length === 0 && (
+          <p className="text-xs text-zinc-600 text-center mt-8">
+            Begin thread. Use /remember &lt;text&gt; to save to memory.
+          </p>
+        )}
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`rounded px-3 py-2 text-sm max-w-2xl ${
+              m.role === 'user'
+                ? 'bg-zinc-800 text-zinc-200 ml-auto'
+                : 'bg-zinc-900 text-zinc-300'
+            }`}
+          >
+            <p className="text-xs uppercase tracking-widest mb-1 ${m.role === 'user' ? 'text-zinc-500' : 'text-zinc-600'}">
+              {m.role === 'user' ? 'you' : 'tela'}
+            </p>
+            <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+          </div>
+        ))}
+        {isStreaming && (
+          <div className="bg-zinc-900 rounded px-3 py-2 text-sm text-zinc-500 max-w-2xl">
+            <p className="text-xs uppercase tracking-widest mb-1">tela</p>
+            <span className="animate-pulse">···</span>
+          </div>
+        )}
+        <div ref={bottomRef} />
       </div>
-      <form onSubmit={handleSubmit} className="border-t border-zinc-800 p-3">
-        <input value={input} onChange={handleInputChange} className="w-full rounded bg-zinc-900 p-3" placeholder="Continue thread..." />
-        <p className="mt-1 text-xs text-zinc-500">{status}</p>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="border-t border-zinc-800 p-3 flex gap-2">
+        <input
+          value={input}
+          onChange={handleInputChange}
+          disabled={isStreaming}
+          className="flex-1 rounded bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 disabled:opacity-50"
+          placeholder={isStreaming ? 'Streaming…' : 'Continue thread…'}
+        />
+        <button
+          type="submit"
+          disabled={isStreaming || !input.trim()}
+          className="rounded bg-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-600 disabled:opacity-40 transition-colors"
+        >
+          Send
+        </button>
       </form>
+
     </div>
   );
 }
