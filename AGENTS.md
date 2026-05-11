@@ -38,12 +38,14 @@ Building: pgvector + AKB retrieval, message embeddings, cross-session continuity
 - Thread list from DB with real titles
 - Assistant message persistence
 - initialMessages on thread page load (session continuity)
+- Continuity engine: operational state snapshot on session open (G3)
+- Pig Pen v5.2 operator routing (G4): deterministic domain→operator mapping,
+  operator context injected into system prompt, routing streamed to client,
+  visible in chat panel routing bar
 
 ## Do Not Build Yet
 - MOSE orchestration engine
-- Continuity snapshots
 - Governance UI
-- Pig Pen operator routing
 - Observability dashboard
 
 ## Standards

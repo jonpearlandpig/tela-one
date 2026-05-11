@@ -42,6 +42,21 @@ export function RuntimeShell({
 
       {/* ── Left sidebar — threads ── */}
       <aside className="flex flex-col border-r border-zinc-800 overflow-hidden">
+        {/* Nav links */}
+        <div className="border-b border-zinc-800 px-3 py-2 flex gap-1">
+          <Link
+            href="/runtime"
+            className={`text-xs px-2 py-1 rounded transition-colors ${pathname === '/runtime' ? 'bg-zinc-800 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            State
+          </Link>
+          <Link
+            href="/runtime/memory"
+            className={`text-xs px-2 py-1 rounded transition-colors ${pathname === '/runtime/memory' ? 'bg-zinc-800 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            Memory
+          </Link>
+        </div>
         <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
           <span className="text-xs uppercase tracking-widest text-zinc-500">Threads</span>
           <button

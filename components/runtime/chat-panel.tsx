@@ -1,8 +1,24 @@
 'use client';
 
 import { useChat } from 'ai/react';
-import type { Message } from 'ai';
+import type { Message, JSONValue } from 'ai';
 import { useEffect, useRef } from 'react';
+
+interface RoutingSummary {
+  constitutional: Array<{ id: string; name: string }>;
+  active: Array<{ id: string; name: string; title: string }>;
+}
+
+function extractRouting(data: JSONValue[] | undefined): RoutingSummary | null {
+  if (!data) return null;
+  for (let i = data.length - 1; i >= 0; i--) {
+    const d = data[i];
+    if (d && typeof d === 'object' && !Array.isArray(d) && 'routing' in d) {
+      return (d as unknown as { routing: RoutingSummary }).routing;
+    }
+  }
+  return null;
+}
 
 export function ChatPanel({
   threadId,
@@ -11,7 +27,7 @@ export function ChatPanel({
   threadId: string;
   initialMessages?: Message[];
 }) {
-  const { messages, input, handleInputChange, handleSubmit, status } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, status, data } = useChat({
     api: '/api/chat',
     body: { threadId },
     initialMessages,
@@ -23,9 +39,25 @@ export function ChatPanel({
   }, [messages]);
 
   const isStreaming = status === 'streaming' || status === 'submitted';
+  const routing = extractRouting(data);
 
   return (
     <div className="flex h-full flex-col">
+
+      {/* Routing indicator — visible when active */}
+      {routing && routing.active.length > 0 && (
+        <div className="border-b border-zinc-800 px-4 py-1.5 flex items-center gap-3 flex-wrap">
+          <span className="text-xs uppercase tracking-widest text-zinc-600">Routing</span>
+          {routing.active.map((op) => (
+            <span key={op.id} className="text-xs font-mono text-zinc-400 border border-zinc-700 px-1.5 py-0.5 rounded">
+              {op.name} <span className="text-zinc-600">·</span> <span className="text-zinc-600">{op.id}</span>
+            </span>
+          ))}
+          <span className="text-xs text-zinc-700 ml-auto">
+            {routing.constitutional.map((o) => o.name).join(' · ')}
+          </span>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -43,7 +75,7 @@ export function ChatPanel({
                 : 'bg-zinc-900 text-zinc-300'
             }`}
           >
-            <p className="text-xs uppercase tracking-widest mb-1 ${m.role === 'user' ? 'text-zinc-500' : 'text-zinc-600'}">
+            <p className={`text-xs uppercase tracking-widest mb-1 ${m.role === 'user' ? 'text-zinc-500' : 'text-zinc-600'}`}>
               {m.role === 'user' ? 'you' : 'tela'}
             </p>
             <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
@@ -51,7 +83,7 @@ export function ChatPanel({
         ))}
         {isStreaming && (
           <div className="bg-zinc-900 rounded px-3 py-2 text-sm text-zinc-500 max-w-2xl">
-            <p className="text-xs uppercase tracking-widest mb-1">tela</p>
+            <p className="text-xs uppercase tracking-widest mb-1 text-zinc-600">tela</p>
             <span className="animate-pulse">···</span>
           </div>
         )}

@@ -1,8 +1,9 @@
-import { streamText } from 'ai';
+import { createDataStreamResponse, streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { createClient } from '@/lib/supabase/server';
 import { generateEmbedding, embeddingToSql } from '@/lib/embeddings';
 import { retrieveContext, buildSystemPrompt } from '@/lib/retrieval';
+import { routeOperators, buildOperatorPrompt, summarizeRouting } from '@/lib/pig-pen';
 
 export async function POST(req: Request) {
   const { messages, threadId } = await req.json();
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
       });
       await supabase.from('messages').insert([
         { thread_id: threadId, role: 'user', content: latest.content },
-        { thread_id: threadId, role: 'assistant', content: `Saved to operational memory.` },
+        { thread_id: threadId, role: 'assistant', content: 'Saved to operational memory.' },
       ]);
     }
     const result = streamText({
@@ -38,17 +39,31 @@ export async function POST(req: Request) {
     return result.toDataStreamResponse({ sendUsage: false });
   }
 
+  // ── Operator routing ───────────────────────────────────────────────────────
+  const routing = routeOperators(latest?.content ?? '');
+  const routingSummary = summarizeRouting(routing);
+
   // ── Embedding + retrieval ──────────────────────────────────────────────────
-  let systemPrompt = "You are TELA One — Jon Hartman's sovereign operational runtime. Be direct and operationally focused.";
+  let memoryContext = '';
   let queryEmbedding: number[] | null = null;
 
   try {
     queryEmbedding = await generateEmbedding(latest?.content ?? '');
     const context = await retrieveContext(supabase, user.id, queryEmbedding);
-    systemPrompt = buildSystemPrompt(context);
+    memoryContext = buildSystemPrompt(context);
   } catch {
-    // retrieval failure is non-fatal — proceed without memory injection
+    // retrieval failure is non-fatal
   }
+
+  // ── Compose system prompt ──────────────────────────────────────────────────
+  const operatorPrompt = buildOperatorPrompt(routing);
+  const systemPrompt = [
+    "You are TELA One — Jon Hartman's sovereign operational runtime. Be direct and operationally focused.",
+    operatorPrompt,
+    memoryContext || '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   // ── Persist user message ───────────────────────────────────────────────────
   if (latest?.content) {
@@ -67,27 +82,39 @@ export async function POST(req: Request) {
     .eq('thread_id', threadId);
 
   if (count === 1 && latest?.content) {
-    const title = (latest.content as string).slice(0, 60);
-    await supabase.from('threads').update({ title, updated_at: new Date().toISOString() }).eq('id', threadId);
+    await supabase
+      .from('threads')
+      .update({ title: (latest.content as string).slice(0, 60), updated_at: new Date().toISOString() })
+      .eq('id', threadId);
   } else {
-    await supabase.from('threads').update({ updated_at: new Date().toISOString() }).eq('id', threadId);
+    await supabase
+      .from('threads')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', threadId);
   }
 
-  // ── Stream ─────────────────────────────────────────────────────────────────
-  const result = streamText({
-    model: openai('gpt-4.1-mini'),
-    system: systemPrompt,
-    messages,
-    async onFinish({ text }) {
-      const assistantEmbedding = await generateEmbedding(text).catch(() => null);
-      await supabase.from('messages').insert({
-        thread_id: threadId,
-        role: 'assistant',
-        content: text,
-        ...(assistantEmbedding ? { embedding: embeddingToSql(assistantEmbedding) } : {}),
+  // ── Stream with routing data ───────────────────────────────────────────────
+  return createDataStreamResponse({
+    execute(dataStream) {
+      // Write routing metadata to stream before text begins
+      dataStream.writeData({ routing: routingSummary as unknown as import('ai').JSONValue });
+
+      const result = streamText({
+        model: openai('gpt-4.1-mini'),
+        system: systemPrompt,
+        messages,
+        async onFinish({ text }) {
+          const assistantEmbedding = await generateEmbedding(text).catch(() => null);
+          await supabase.from('messages').insert({
+            thread_id: threadId,
+            role: 'assistant',
+            content: text,
+            ...(assistantEmbedding ? { embedding: embeddingToSql(assistantEmbedding) } : {}),
+          });
+        },
       });
+
+      result.mergeIntoDataStream(dataStream);
     },
   });
-
-  return result.toDataStreamResponse({ sendUsage: true });
 }

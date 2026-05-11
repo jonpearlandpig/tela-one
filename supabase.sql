@@ -61,6 +61,22 @@ create policy "users manage own akbs" on akbs
 create index on messages using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 create index on akbs using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 
+-- ── CONTINUITY SNAPSHOTS ──────────────────────────────────────────────────────
+-- Periodically generated operational state briefs. Reconstructs context on session open.
+
+create table continuity_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  content text not null,
+  context_summary jsonb default '{}',  -- thread_count, message_count, akb_count
+  generated_at timestamptz default now()
+);
+
+alter table continuity_snapshots enable row level security;
+
+create policy "users manage own snapshots" on continuity_snapshots
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- ── RETRIEVAL FUNCTIONS ───────────────────────────────────────────────────────
 
 create or replace function search_akbs(
