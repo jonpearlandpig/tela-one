@@ -121,4 +121,3 @@ function formatAge(iso: string): string {
   return `${d}d ago`;
 }
 
-export { STALE_HOURS };
